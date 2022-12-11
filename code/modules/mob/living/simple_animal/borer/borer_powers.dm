@@ -674,28 +674,10 @@
 
 //Eclipse Edit Start
 
-	window_width = 600
-	window_height = 400
+/mob/living/simple_animal/borer/proc/medical_scan_action()
+	set name = "Sense Host Health"
+	set category = "Abilities"
 
-/obj/item/device/scanner/health/scan(atom/A, mob/user)
-	scan_data = medical_scan_action(A, user, src, mode)
-	scan_title = "Health scan - [A]"
-	show_results(user)
-	flick("health2", src)
-
-/obj/item/device/scanner/health/verb/toggle_mode()
-	set name = "Switch Verbosity"
-	set category = "Object"
-
-	mode = !mode
-	switch (mode)
-		if(1)
-			to_chat(usr, "The scanner now shows specific limb damage.")
-		if(0)
-			to_chat(usr, "The scanner no longer shows limb damage.")
-
-/proc/medical_scan_action(atom/target, mob/living/user, obj/scanner, var/mode)
-	
 	if(stat)
 		return
 
@@ -711,7 +693,7 @@
 	if (istype(host, /mob/living/carbon/human))
 		scan_subject = host
 	else 
-		to_chat(src, SPAN_DANGER("You cannot interface with this host's neevous system!"))
+		to_chat(src, SPAN_DANGER("You cannot interface with this host's nervous system!"))
 		return
 	
 	if(!scan_subject)
@@ -721,9 +703,9 @@
 		to_chat(user, SPAN_WARNING("You cannot sense any organic parts within this host."))
 		return
 
-	. = medical_scan_results(scan_subject, mode)
+	. = medical_scan_results(scan_subject)
 
-/proc/medical_scan_results(var/mob/living/M, var/mode)
+/proc/medical_scan_results(var/mob/living/M)
 	. = list()
 	var/dat = list()
 	if (!ishuman(M) || M.isSynthetic())
@@ -752,7 +734,7 @@
 	dat += span("highlight", "Body Temperature: [M.bodytemperature-T0C]&deg;C ([M.bodytemperature*1.8-459.67]&deg;F)")
 	if(M.timeofdeath && (M.stat == DEAD))
 		dat += span("highlight", "Time of Death: [worldtime2stationtime(M.timeofdeath)]")
-	if(ishuman(M) && mode == 1)
+	if(ishuman(M))
 		var/mob/living/carbon/human/H = M
 		var/list/damaged = H.get_damaged_organs(1, 1)
 		dat += span("highlight", "Localized Damage, Brute/Burn:")
