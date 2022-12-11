@@ -670,3 +670,172 @@
 
 		to_chat(H, SPAN_WARNING("Your nose begins to bleed..."))
 		H.drip_blood(1)
+
+
+//Eclipse Edit Start
+
+	window_width = 600
+	window_height = 400
+
+/obj/item/device/scanner/health/scan(atom/A, mob/user)
+	scan_data = medical_scan_action(A, user, src, mode)
+	scan_title = "Health scan - [A]"
+	show_results(user)
+	flick("health2", src)
+
+/obj/item/device/scanner/health/verb/toggle_mode()
+	set name = "Switch Verbosity"
+	set category = "Object"
+
+	mode = !mode
+	switch (mode)
+		if(1)
+			to_chat(usr, "The scanner now shows specific limb damage.")
+		if(0)
+			to_chat(usr, "The scanner no longer shows limb damage.")
+
+/proc/medical_scan_action(atom/target, mob/living/user, obj/scanner, var/mode)
+	
+	if(stat)
+		return
+
+	if(!host)
+		to_chat(src, SPAN_WARNING("You are not inside a host body."))
+		return
+
+	if(docile)
+		to_chat(src, SPAN_DANGER("You are feeling far too docile to do that."))
+		return
+
+	var/mob/living/carbon/human/scan_subject = null
+	if (istype(host, /mob/living/carbon/human))
+		scan_subject = host
+	else 
+		to_chat(src, SPAN_DANGER("You cannot interface with this host's neevous system!"))
+		return
+	
+	if(!scan_subject)
+		return
+
+	if (scan_subject.isSynthetic())
+		to_chat(user, SPAN_WARNING("You cannot sense any organic parts within this host."))
+		return
+
+	. = medical_scan_results(scan_subject, mode)
+
+/proc/medical_scan_results(var/mob/living/M, var/mode)
+	. = list()
+	var/dat = list()
+	if (!ishuman(M) || M.isSynthetic())
+		//these sensors are designed for organic life
+		. += "<h2>Host Health:\n\t You cannot sense your Host's health</h2>"
+		. += span("highlight", "    Key: <font color='#0080ff'>Suffocation</font>/<font color='green'>Toxin</font>/<font color='#FFA500'>Burns</font>/<font color='red'>Brute</font>")
+		. += span("highlight", "    Host Injuries: <font color='#0080ff'>?</font> - <font color='green'>?</font> - <font color='#FFA500'>?</font> - <font color='red'>?</font>")
+		. += span("highlight", "Host Temperature: [M.bodytemperature-T0C]&deg;C ([M.bodytemperature*1.8-459.67]&deg;F)")
+		. += SPAN_WARNING("You cannot sense their blood level")
+		. += span("highlight", "Host's pulse: <font color='red'>-- bpm.</font>")
+		return
+
+	var/fake_oxy = max(rand(1, 40), M.getOxyLoss(), (300 - (M.getToxLoss() + M.getFireLoss() + M.getBruteLoss())))
+	var/OX = M.getOxyLoss() > 50 	? 	"<b>[M.getOxyLoss()]</b>" 		: M.getOxyLoss()
+	var/TX = M.getToxLoss() > 50 	? 	"<b>[M.getToxLoss()]</b>" 		: M.getToxLoss()
+	var/BU = M.getFireLoss() > 50 	? 	"<b>[M.getFireLoss()]</b>" 		: M.getFireLoss()
+	var/BR = M.getBruteLoss() > 50 	? 	"<b>[M.getBruteLoss()]</b>" 	: M.getBruteLoss()
+	if(M.status_flags & FAKEDEATH)
+		OX = fake_oxy > 50 			? 	"<b>[fake_oxy]</b>" 			: fake_oxy
+		dat += "<h2>Host Health [M]:</h2>"
+		dat += span("highlight", "Host Status: Suspended Vital Processes")
+	else
+		dat += span("highlight", "Host Health:\n\t Host Status: [M.stat > 1 ? "dead" : "[round(M.health/M.maxHealth*100)]% healthy"]")
+	dat += span("highlight", "    Key: <font color='#0080ff'>Suffocation</font>/<font color='green'>Toxin</font>/<font color='#FFA500'>Burns</font>/<font color='red'>Brute</font>")
+	dat += span("highlight", "    Damage Specifics: <font color='#0080ff'>[OX]</font> - <font color='green'>[TX]</font> - <font color='#FFA500'>[BU]</font> - <font color='red'>[BR]</font>")
+	dat += span("highlight", "Body Temperature: [M.bodytemperature-T0C]&deg;C ([M.bodytemperature*1.8-459.67]&deg;F)")
+	if(M.timeofdeath && (M.stat == DEAD))
+		dat += span("highlight", "Time of Death: [worldtime2stationtime(M.timeofdeath)]")
+	if(ishuman(M) && mode == 1)
+		var/mob/living/carbon/human/H = M
+		var/list/damaged = H.get_damaged_organs(1, 1)
+		dat += span("highlight", "Localized Damage, Brute/Burn:")
+		if(length(damaged) > 0)
+			for(var/obj/item/organ/external/org in damaged)
+				dat += text("<span class='highlight'>     [][]: [][] - []</span>",
+				capitalize(org.name),
+				(BP_IS_ROBOTIC(org)) ? "(Cybernetic)" : "",
+				(org.brute_dam > 0) ? SPAN_WARNING("[org.brute_dam]") : 0,
+				(org.status & ORGAN_BLEEDING)?SPAN_DANGER("\[Bleeding\]"):"",
+				(org.burn_dam > 0) ? "<font color='#FFA500'>[org.burn_dam]</font>" : 0)
+		else
+			dat += span("highlight", "    Limbs are OK.")
+
+	OX = M.getOxyLoss() > 50 ? 	 "<font color='#0080ff'><b>Your host has suffered severe oxygen depletion!</b></font>" 		: 	"Your host has not suffered significant oxygen depletion."
+	TX = M.getToxLoss() > 50 ? 	 "<font color='green'><b>You can sense dangerous levels of toxin build-up!</b></font>" 	: 	"You cannot sense significant levels of toxin build-up."
+	BU = M.getFireLoss() > 50 ?  "<font color='#FFA500'><b>You sense severe burns!</b></font>" 			:	"You cannot sense severe burns."
+	BR = M.getBruteLoss() > 50 ? "<font color='red'><b>You sense severe wounds!</b></font>" 		: 	"You cannot sense significant wounds."
+	dat += "[OX] | [TX] | [BU] | [BR]"
+	if(iscarbon(M))
+		var/mob/living/carbon/C = M
+		if(C.reagents.total_volume)
+			var/unknown = 0
+			var/reagentdata[0]
+			for(var/A in C.reagents.reagent_list)
+				var/datum/reagent/R = A
+				if(R.scannable)
+					reagentdata["[R.id]"] = span("highlight", "    [round(C.reagents.get_reagent_amount(R.id), 1)]u [R.name]")
+				else
+					unknown++
+			if(reagentdata.len)
+				dat += span("highlight", "You can taste these reagents in your hosts's bloodstream:")
+				for(var/d in reagentdata)
+					dat += reagentdata[d]
+			if(unknown)
+				dat += SPAN_WARNING("You can taste something you do not recognise in your host's bloodstream.")
+		if(C.virus2.len)
+			for (var/ID in C.virus2)
+				if (ID in virusDB)
+					var/datum/data/record/V = virusDB[ID]
+					dat += SPAN_WARNING("You can sense a viral infection within your host's system.")
+	if (M.getCloneLoss())
+		dat += SPAN_WARNING("Your host's cells seem to be improeprly formed.")
+	else if (M.getBrainLoss() >= 60 || !M.has_brain())
+		dat += SPAN_WARNING("This host is brain dead.")
+	else if (M.getBrainLoss() >= 25)
+		dat += SPAN_WARNING("Your host appears to have suffered severe brain damage.")
+	else if (M.getBrainLoss() >= 10)
+		dat += SPAN_WARNING("Your host has suffered brain damage.")
+	if(ishuman(M))
+		var/mob/living/carbon/human/H = M
+		var/foundUnlocatedFracture = FALSE
+		for(var/name in H.organs_by_name)
+			var/obj/item/organ/external/E = H.organs_by_name[name]
+			if(!E)
+				continue
+			if(E.status & ORGAN_BROKEN)
+				if(!(E.status & ORGAN_SPLINTED))
+					if(E.organ_tag in list(BP_R_ARM, BP_L_ARM, BP_R_LEG, BP_L_LEG, BP_GROIN, BP_HEAD, BP_CHEST))
+						dat += SPAN_WARNING("You can sense a fractured bone in your host's [E.get_bone()].")
+					else
+						foundUnlocatedFracture = TRUE
+			if(E.has_infected_wound())
+				dat += SPAN_WARNING("Your host's [E] is infected.")
+
+		if(foundUnlocatedFracture)
+			dat += SPAN_WARNING("You sense a fractured bone in your host, although you are unsure where.")
+
+		for(var/obj/item/organ/external/e in H.organs)
+			if(!e)
+				continue
+			for(var/datum/wound/W in e.wounds) if(W.internal)
+				dat += text(SPAN_WARNING("You can sense internal bleeding within your host."))
+				break
+		if(H.vessel)
+			var/blood_volume = H.vessel.get_reagent_amount("blood")
+			var/blood_percent =  round((blood_volume / H.species.blood_volume)*100)
+			var/blood_type = H.dna.b_type
+			if((blood_percent <= H.total_blood_req + BLOOD_VOLUME_SAFE_MODIFIER) && (blood_percent > H.total_blood_req + BLOOD_VOLUME_BAD_MODIFIER))
+				dat += SPAN_DANGER("Your host has lost significant amounts of blood!")
+			else if(blood_percent <= H.total_blood_req + BLOOD_VOLUME_BAD_MODIFIER)
+				dat += SPAN_DANGER("<i>Your host is bleeding to death!")
+			else
+				dat += span("highlight", "Your host's blood levels are within normal limits.")
+		dat += "<span class='highlight'>You count your host's pulse rate: <font color='[H.pulse() == PULSE_THREADY || H.pulse() == PULSE_NONE ? "red" : "#0080ff"]'>[H.get_pulse(GETPULSE_TOOL)] bpm.</font></span>"
+	. = jointext(dat, "<br>")
